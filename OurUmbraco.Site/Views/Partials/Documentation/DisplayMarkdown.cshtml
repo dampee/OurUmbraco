@@ -155,10 +155,10 @@
     </table>
 }
 
-@if (currentUmbracoVersion != null 
+@if (currentUmbracoVersion != null
      && currentUmbracoVersion == 8
      && currentVersionIsRemovedForv8 != null
-     && currentVersionIsRemovedForv8 == false 
+     && currentVersionIsRemovedForv8 == false
      && currentVersion != null
      && currentVersion.NeedsV8Update == "true")
 {
@@ -172,8 +172,8 @@
     </div>
 }
 
-@if (currentUmbracoVersion != null 
-     && currentUmbracoVersion == 8 
+@if (currentUmbracoVersion != null
+     && currentUmbracoVersion == 8
      && currentVersion != null
      && currentVersion.Url.EndsWith("-v7") == false
      && currentVersionIsRemovedForv8)
@@ -185,6 +185,11 @@
             If you are using Umbraco 7, this article is perfect for you!
         </p>
     </div>
+}
+
+@if (currentVersion != null)
+{
+    @:Last updated : @(currentVersion.LastCommitDate)
 }
 
 @Html.Raw(markdown)

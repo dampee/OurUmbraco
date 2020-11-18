@@ -14,6 +14,7 @@ namespace OurUmbraco.Repository.Models
         public string VersionRemoved { get; internal set; }
         public string MetaTitle { get; set; }
         public string MetaDescription { get; set; }
+        public string LastCommitDate { get; set; }
         public string NeedsV8Update { get; set; }
     }
 }

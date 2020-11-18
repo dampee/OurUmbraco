@@ -12,6 +12,8 @@ using YamlDotNet.Serialization;
 using OurUmbraco.Documentation.Busineslogic;
 using System.Configuration;
 using YamlDotNet.Core;
+using System.Web.Hosting;
+using LibGit2Sharp;
 
 namespace OurUmbraco.Our.Examine
 {
@@ -63,6 +65,8 @@ namespace OurUmbraco.Our.Examine
                 lines.RemoveAt(0);
             }
 
+            var latestEditDate = GetLatestEditDate(file.FullName);
+
             int secondYamlMarker = AddYamlFields(simpleDataSet, lines);
 
             // build body 
@@ -81,6 +85,10 @@ namespace OurUmbraco.Our.Examine
             simpleDataSet.RowData.Add("body", body);
             simpleDataSet.RowData.Add("nodeName", RemoveSpecialCharacters(headLine));
             simpleDataSet.RowData.Add("updateDate", file.CreationTime.ToString("yyyy-MM-dd HH:mm:ss"));
+            if (latestEditDate != null)
+            {
+                simpleDataSet.RowData.Add("lastCommitDate", latestEditDate.Value.ToString("yyyy-MM-dd HH:mm"));
+            }
             simpleDataSet.RowData.Add("nodeTypeAlias", "documentation");
 
             simpleDataSet.RowData.Add("dateCreated", file.CreationTime.ToString("yyyy-MM-dd HH:mm:ss"));
@@ -96,6 +104,35 @@ namespace OurUmbraco.Our.Examine
                 simpleDataSet.RowData.Clear();
             }
             return simpleDataSet;
+        }
+
+        private const string DocumentationFolder = @"~\Documentation";
+
+
+        private static DateTime? GetLatestEditDate(string fullName)
+        {
+            string _rootFolderPath = HostingEnvironment.MapPath(DocumentationFolder);
+
+            if (Directory.Exists(_rootFolderPath) == false)
+            {
+                return null;
+            }
+
+            if (!Directory.Exists(Path.Combine(_rootFolderPath, ".git")))
+            {
+                return null;
+            }
+
+            using (var repo = new LibGit2Sharp.Repository(_rootFolderPath))
+            {
+                var fileOffsetFwdSlash = fullName.Replace(_rootFolderPath + @"\", "").Replace("\\", "/");
+
+                var logs = repo.Commits.QueryBy(fileOffsetFwdSlash).ToList();
+                var lastLog = logs.OrderByDescending(c => c.Commit.Author.When).FirstOrDefault();
+
+                return lastLog == null ? (DateTime?)null : lastLog.Commit.Author.When.DateTime;
+            }
+
         }
 
         /// <summary>
