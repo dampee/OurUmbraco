@@ -4,6 +4,8 @@ using System.Web.Hosting;
 using Examine;
 using Examine.LuceneEngine;
 using System;
+using Umbraco.Core.Logging;
+using System.Linq;
 
 namespace OurUmbraco.Our.Examine
 {
@@ -26,25 +28,38 @@ namespace OurUmbraco.Our.Examine
 
             var i = 0; //unique id for each doc
 
-            foreach (var file in files)
-            {
-                i++;
-                var simpleDataSet = new SimpleDataSet { NodeDefinition = new IndexedNode(), RowData = new Dictionary<string, string>() };
 
-                try
-                {
-                    simpleDataSet = ExamineHelper.MapFileToSimpleDataIndexItem(file, simpleDataSet, i, indexType);
-                }
-                catch (Exception ex)
-                {
-                    Umbraco.Core.Logging.LogHelper.Error<DocumentationIndexDataService>(
-                        $"Indexing docs - could not parse document {file.FullName}", ex);
-                    if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
-                }
-                yield return simpleDataSet;
+            const string DocumentationFolder = @"~\Documentation";
+            string _rootFolderPath = HostingEnvironment.MapPath(DocumentationFolder);
+
+            if (Directory.Exists(_rootFolderPath) == false || !Directory.Exists(Path.Combine(_rootFolderPath, ".git")))
+            {
+                LogHelper.Error(typeof(DocumentationIndexDataService), "could not find documentation repository", new InvalidOperationException());
+                yield break;
             }
-            Umbraco.Core.Logging.LogHelper.Info<DocumentationIndexDataService>(
-                        $"Indexed documentation files: {0}", () => files.Length);
+
+            using (var repo = new LibGit2Sharp.Repository(_rootFolderPath))
+            {
+                foreach (var file in files)
+                {
+                    i++;
+                    var simpleDataSet = new SimpleDataSet { NodeDefinition = new IndexedNode(), RowData = new Dictionary<string, string>() };
+
+                    try
+                    {
+                        simpleDataSet = ExamineHelper.MapFileToSimpleDataIndexItem(repo, file, simpleDataSet, i, indexType);
+                    }
+                    catch (Exception ex)
+                    {
+                        Umbraco.Core.Logging.LogHelper.Error<DocumentationIndexDataService>(
+                            $"Indexing docs - could not parse document {file.FullName}", ex);
+                        if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
+                    }
+                    yield return simpleDataSet;
+                }
+                Umbraco.Core.Logging.LogHelper.Info<DocumentationIndexDataService>(
+                            $"Indexed documentation files: {0}", () => files.Length);
+            }
         }
     }
 }

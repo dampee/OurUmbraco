@@ -39,15 +39,15 @@ namespace OurUmbraco.Our.Examine
         /// <param name="filePath"></param>
         /// <param name="docIndex"></param>
         /// <returns></returns>
-        public static Dictionary<string, string> GetDataSet(string filePath, int docIndex)
+        public static Dictionary<string, string> GetDataSet(LibGit2Sharp.Repository repo, string filePath, int docIndex)
         {
             var simpleDataSet = new SimpleDataSet { NodeDefinition = new IndexedNode(), RowData = new Dictionary<string, string>() };
             var fileInfo = new FileInfo(filePath);
-            simpleDataSet = MapFileToSimpleDataIndexItem(fileInfo, simpleDataSet, docIndex, "documentation");
+            simpleDataSet = MapFileToSimpleDataIndexItem(repo, fileInfo, simpleDataSet, docIndex, "documentation");
             return simpleDataSet.RowData;
         }
 
-        internal static SimpleDataSet MapFileToSimpleDataIndexItem(FileInfo file, SimpleDataSet simpleDataSet, int index, string indexType)
+        internal static SimpleDataSet MapFileToSimpleDataIndexItem(LibGit2Sharp.Repository repo, FileInfo file, SimpleDataSet simpleDataSet, int index, string indexType)
         {
             var lines = new List<string>();
             lines.AddRange(File.ReadAllLines(file.FullName));
@@ -65,7 +65,7 @@ namespace OurUmbraco.Our.Examine
                 lines.RemoveAt(0);
             }
 
-            var latestEditDate = GetLatestEditDate(file.FullName);
+            var latestEditDate = GetLatestEditDate(repo, file.FullName);
 
             int secondYamlMarker = AddYamlFields(simpleDataSet, lines);
 
@@ -106,31 +106,25 @@ namespace OurUmbraco.Our.Examine
             return simpleDataSet;
         }
 
-        private const string DocumentationFolder = @"~\Documentation";
 
-
-        private static DateTime? GetLatestEditDate(string fullName)
+        private static DateTime? GetLatestEditDate(LibGit2Sharp.Repository repo, string fullName)
         {
-            string _rootFolderPath = HostingEnvironment.MapPath(DocumentationFolder);
 
-            if (Directory.Exists(_rootFolderPath) == false)
+            try
             {
-                return null;
-            }
-
-            if (!Directory.Exists(Path.Combine(_rootFolderPath, ".git")))
-            {
-                return null;
-            }
-
-            using (var repo = new LibGit2Sharp.Repository(_rootFolderPath))
-            {
-                var fileOffsetFwdSlash = fullName.Replace(_rootFolderPath + @"\", "").Replace("\\", "/");
-
-                var logs = repo.Commits.QueryBy(fileOffsetFwdSlash).ToList();
+                var workingDirectory = repo.Info.WorkingDirectory;
+                var fileOffsetFwdSlash = fullName.Replace(workingDirectory, "").Replace("\\", "/");
+                
+                var logs = repo.Commits.QueryBy(fileOffsetFwdSlash, new CommitFilter { SortBy = CommitSortStrategies.Topological }).ToList();
                 var lastLog = logs.OrderByDescending(c => c.Commit.Author.When).FirstOrDefault();
 
                 return lastLog == null ? (DateTime?)null : lastLog.Commit.Author.When.DateTime;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error(typeof(ExamineHelper), "could not load last commit date", ex);
+                if (System.Diagnostics.Debugger.IsAttached) { System.Diagnostics.Debugger.Break(); }
+                return null;
             }
 
         }
