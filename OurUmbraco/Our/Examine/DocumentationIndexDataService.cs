@@ -40,6 +40,9 @@ namespace OurUmbraco.Our.Examine
 
             using (var repo = new LibGit2Sharp.Repository(_rootFolderPath))
             {
+                var repoCommits = repo.Commits.ToList();
+                repoCommits.Where(c=>c.Notes.First().BlobId)
+
                 foreach (var file in files)
                 {
                     i++;
